@@ -16,9 +16,12 @@ knitr::opts_chunk$set(echo = TRUE)
 Six participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The goal of this project is to predict the manner in which these participants did the exercise. To achieve this goal, we developed three predictive models and compared their accuracy on the training data set. 54 numeric variables (features) were used to train the models. The best model (random forest) was used for final predictions on the testing data set and correctly classified all 20 test cases.
 
 
-#Data cleaning and feature selection
+#Data Cleaning and Feature Selection
 
 The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+We removed all factor variables, row numbers and timestamps. After that there remained 54 numeric variables.
+We saved 30% of the dataset to test out of sample error.
 
 ```{r data}
 library(caret)
@@ -32,23 +35,28 @@ testing = read.csv("pml-testing.csv")
 table(training_all$classe)
 
 #removing variables where over 30% is missing
-training <- training_all[colSums(is.na(training_all))/nrow(training_all) < .3]
+training_all <- training_all[colSums(is.na(training_all))/nrow(training_all) < .3]
 
 #removing all factor variables, row numbers and timestamps
-classe_vector <- training$classe
-nums <- unlist(lapply(training, is.numeric))  
-training <- training[ , nums]
-training <- training[ , colnames(training)!="X"]
-training <- training[ , colnames(training)!="raw_timestamp_part_1"]
-training <- training[ , colnames(training)!="raw_timestamp_part_2"]
+classe_vector <- training_all$classe
+nums <- unlist(lapply(training_all, is.numeric))  
+training_all <- training_all[ , nums]
+training_all <- training_all[ , colnames(training_all)!="X"]
+training_all <- training_all[ , colnames(training_all)!="raw_timestamp_part_1"]
+training_all <- training_all[ , colnames(training_all)!="raw_timestamp_part_2"]
 
 #adding classe back
-training$classe <- classe_vector
+training_all$classe <- classe_vector
+
+#data partitioning
+inTrain = createDataPartition(training_all$classe, p = 0.7)[[1]]
+training = training_all[ inTrain,]
+validation = training_all[-inTrain,]
 ```
 
-#Chosing a prediction algorythm
+#Running Three Different Algorythms
 
-We tried three predictive algorythms: Random Forest (RF), Linear Discriminant Analysis (LDA) and Classification and Regression Trees (CART).
+We tried three predictive algorythms: Random Forest (RF), Linear Discriminant Analysis (LDA) and Classification and Regression Trees (CART). For each algorythm we used 54 available numeric variables (features). The algorythms were run with 3-fold cross validation to check the accuracy. Models we trained using caret package.
 
 ```{r models}
 # Run algorithms using 3-fold cross validation
@@ -65,7 +73,7 @@ set.seed(7)
 fit.cart <- train(classe~., data=training, method="rpart", metric=metric, trControl=control)
 ```
 
-##Accuracy of predictive models
+#Accuracy of Predictive Models Estimated by the Cross Validation
 
 Random forest had the best accuracy.
 
@@ -78,9 +86,17 @@ summary(results)
 dotplot(results)
 ```
 
-#Classifying the test cases
+#Out of Sample Error
 
-Random forest showed the best accuracy, so we used it for predicting test values.
+We estimated accuracy of the RF model on the validation dataset. 
+```{r validation}
+validation_predictions <- predict(fit.rf, validation)
+confusionMatrix(validation_predictions, validation$classe)
+```
+
+#Classifying 20 Test Cases
+
+Random forest showed the best accuracy, so we applied it for predicting test values. All predictions were correct.
 
 ```{r predict}
 #predictions <- predict(fit.lda, testing)
