@@ -1,0 +1,90 @@
+---
+title: "Human Activity Recognition"
+author: "Polina Kukhareva"
+date: "July 19, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+
+Six participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. The goal of this project is to predict the manner in which these participants did the exercise. To achieve this goal, we developed three predictive models and compared their accuracy on the training data set. 54 numeric variables (features) were used to train the models. The best model (random forest) was used for final predictions on the testing data set and correctly classified all 20 test cases.
+
+
+#Data cleaning and feature selection
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+```{r data}
+library(caret)
+#loading data
+training_all = read.csv("pml-training.csv")
+testing = read.csv("pml-testing.csv")
+
+#exploratory analysis
+  #names(training_all)
+  #summary(training_all)
+table(training_all$classe)
+
+#removing variables where over 30% is missing
+training <- training_all[colSums(is.na(training_all))/nrow(training_all) < .3]
+
+#removing all factor variables, row numbers and timestamps
+classe_vector <- training$classe
+nums <- unlist(lapply(training, is.numeric))  
+training <- training[ , nums]
+training <- training[ , colnames(training)!="X"]
+training <- training[ , colnames(training)!="raw_timestamp_part_1"]
+training <- training[ , colnames(training)!="raw_timestamp_part_2"]
+
+#adding classe back
+training$classe <- classe_vector
+```
+
+#Chosing a prediction algorythm
+
+We tried three predictive algorythms: Random Forest (RF), Linear Discriminant Analysis (LDA) and Classification and Regression Trees (CART).
+
+```{r models}
+# Run algorithms using 3-fold cross validation
+control <- trainControl(method="cv", number=3)
+metric <- "Accuracy"
+##Random Forest (RF)
+set.seed(7)
+fit.rf <- train(classe~., data=training, method="rf", na.action = na.pass, metric=metric, trControl=control)
+##Linear Discriminant Analysis (LDA)
+set.seed(7)
+fit.lda <- train(classe~., data=training, method="lda", metric=metric, trControl=control)
+##Classification and Regression Trees (CART).
+set.seed(7)
+fit.cart <- train(classe~., data=training, method="rpart", metric=metric, trControl=control)
+```
+
+##Accuracy of predictive models
+
+Random forest had the best accuracy.
+
+```{r results}
+##summarize accuracy of models
+results <- resamples(list(lda=fit.lda, rf=fit.rf, cart=fit.cart))
+summary(results)
+
+# compare accuracy of models
+dotplot(results)
+```
+
+#Classifying the test cases
+
+Random forest showed the best accuracy, so we used it for predicting test values.
+
+```{r predict}
+#predictions <- predict(fit.lda, testing)
+predictions <- predict(fit.rf, testing)
+#predictions <- predict(fit.cart, testing)
+predictions
+```
+
+
